@@ -44,8 +44,8 @@ app.use(
       "http://localhost:5173",
       "http://localhost:5174",
       "https://jg-enterprisefrontend-xxce.vercel.app/", // ✅ Allow deployed frontend
-      "https://jg-enterprisefrontend-xxce-a084fyrod.vercel.app" // ✅ Add this!
-      "https://jg-enterprisefrontend-qxv5gn7wq.vercel.app"
+      "https://jg-enterprisefrontend-xxce-a084fyrod.vercel.app", // ✅ Add this!
+      "https://jg-enterprisefrontend-qxv5gn7wq.vercel.app",
     ],
     credentials: true,
     methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
