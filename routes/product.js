@@ -2,7 +2,8 @@ const express = require("express")
 const path = require("path")
 const Product = require("../models/Product")
 const router = express.Router()
-const mongoose = require("mongoose") // Import mongoose to use Types.ObjectId
+const mongoose = require("mongoose")
+
 
 // ✅ Cloudinary & Multer Setup
 const multer = require("multer")
@@ -31,6 +32,25 @@ const normalizeSubcategory = (sub) => (typeof sub === "object" ? sub.name : sub)
 
 // Helper to validate MongoDB ObjectId
 const isValidObjectId = (id) => mongoose.Types.ObjectId.isValid(id)
+
+// Helper to parse custom quantity options
+const parseCustomQuantityOptions = (customQuantityOptions) => {
+  if (!customQuantityOptions) return []
+
+  try {
+    if (typeof customQuantityOptions === "string") {
+      const parsed = JSON.parse(customQuantityOptions)
+      return Array.isArray(parsed) ? parsed : []
+    }
+    if (Array.isArray(customQuantityOptions)) {
+      return customQuantityOptions
+    }
+    return []
+  } catch (error) {
+    console.error("❌ Error parsing custom quantity options:", error)
+    return []
+  }
+}
 
 // ✅ Get Latest Products
 router.get("/latest", async (req, res) => {
@@ -61,6 +81,16 @@ router.get("/bestselling", async (req, res) => {
       subcategory: normalizeSubcategory(p.subcategory),
     }))
 
+    // Debug log to see what data is being sent
+    if (normalized.length > 0) {
+      console.log("📦 Sample product data:", {
+        name: normalized[0].name,
+        defaultQuantity: normalized[0].defaultQuantity,
+        unit: normalized[0].unit,
+        customQuantityOptions: normalized[0].customQuantityOptions?.length || 0,
+      })
+    }
+
     res.json({ success: true, products: normalized })
   } catch (err) {
     console.error("❌ Best Selling Fetch Error:", err)
@@ -68,9 +98,16 @@ router.get("/bestselling", async (req, res) => {
   }
 })
 
-// ✅ Create Product
+// ✅ Create Product (Updated for dual quantity system)
 router.post("/", upload.single("image"), async (req, res) => {
   try {
+    console.log("📥 Creating product with data:", {
+      name: req.body.name,
+      defaultQuantity: req.body.defaultQuantity,
+      unit: req.body.unit,
+      customQuantityOptions: req.body.customQuantityOptions ? "provided" : "not provided",
+    })
+
     const {
       name,
       description,
@@ -79,6 +116,8 @@ router.post("/", upload.single("image"), async (req, res) => {
       price,
       costPrice,
       unit,
+      defaultQuantity, // NEW FIELD
+      customQuantityOptions, // NEW FIELD
       stock,
       displayInLatest,
       displayInBestSelling,
@@ -86,7 +125,10 @@ router.post("/", upload.single("image"), async (req, res) => {
       salePrice,
     } = req.body
 
-    const imageUrl = req.file ? req.file.path : null // Cloudinary URL
+    const imageUrl = req.file ? req.file.path : null
+
+    // Parse custom quantity options
+    const parsedCustomQuantityOptions = parseCustomQuantityOptions(customQuantityOptions)
 
     const product = new Product({
       name,
@@ -95,8 +137,10 @@ router.post("/", upload.single("image"), async (req, res) => {
       subcategory: normalizeSubcategory(subcategory),
       price: Number.parseFloat(price),
       costPrice: Number.parseFloat(costPrice) || 0,
-      unit,
-      stock: Number.parseInt(stock),
+      unit: unit || "kg",
+      defaultQuantity: defaultQuantity || "1", // Default to "1" if not provided
+      customQuantityOptions: parsedCustomQuantityOptions, // Store custom options
+      stock: Number.parseInt(stock) || 0,
       imageUrl,
       displayInLatest: parseBool(displayInLatest),
       displayInBestSelling: parseBool(displayInBestSelling),
@@ -105,6 +149,14 @@ router.post("/", upload.single("image"), async (req, res) => {
     })
 
     await product.save()
+
+    console.log("✅ Product created successfully:", {
+      name: product.name,
+      defaultQuantity: product.defaultQuantity,
+      unit: product.unit,
+      customQuantityOptions: product.customQuantityOptions.length,
+    })
+
     res.status(201).json({ success: true, message: "Product added successfully", product })
   } catch (err) {
     console.error("❌ Create Error:", err)
@@ -145,6 +197,13 @@ router.get("/:id", async (req, res) => {
       subcategory: normalizeSubcategory(product.subcategory),
     }
 
+    console.log("📦 Sending single product data:", {
+      name: normalized.name,
+      defaultQuantity: normalized.defaultQuantity,
+      unit: normalized.unit,
+      customQuantityOptions: normalized.customQuantityOptions?.length || 0,
+    })
+
     res.json(normalized)
   } catch (err) {
     console.error("❌ Fetch Single Product Error:", err)
@@ -166,15 +225,14 @@ router.get("/similar/:id", async (req, res) => {
       return res.status(404).json({ success: false, error: "Main product not found for similar search" })
     }
 
-    // Assuming category is populated or directly accessible as an ID
-    const categoryId = mainProduct.category._id || mainProduct.category // Handle if category is populated object or just ID
+    const categoryId = mainProduct.category._id || mainProduct.category
 
     const similarProducts = await Product.find({
       category: categoryId,
-      _id: { $ne: productId }, // Exclude the current product
+      _id: { $ne: productId },
     })
       .populate("category", "name")
-      .limit(4) // Limit to 4 similar products
+      .limit(4)
 
     const normalized = similarProducts.map((p) => ({
       ...p.toObject(),
@@ -188,7 +246,7 @@ router.get("/similar/:id", async (req, res) => {
   }
 })
 
-// ✅ Update Product
+// ✅ Update Product (Updated for dual quantity system)
 router.put("/:id", upload.single("image"), async (req, res) => {
   try {
     const productId = req.params.id
@@ -204,12 +262,16 @@ router.put("/:id", upload.single("image"), async (req, res) => {
       price,
       costPrice,
       unit,
+      defaultQuantity, // NEW FIELD
+      customQuantityOptions, // NEW FIELD
       stock,
       displayInLatest,
       displayInBestSelling,
       onSale,
       salePrice,
     } = req.body
+
+    const parsedCustomQuantityOptions = parseCustomQuantityOptions(customQuantityOptions)
 
     const updates = {
       name,
@@ -218,8 +280,10 @@ router.put("/:id", upload.single("image"), async (req, res) => {
       subcategory: normalizeSubcategory(subcategory),
       price: Number.parseFloat(price),
       costPrice: Number.parseFloat(costPrice) || 0,
-      unit,
-      stock: Number.parseInt(stock),
+      unit: unit || "kg",
+      defaultQuantity: defaultQuantity || "1",
+      customQuantityOptions: parsedCustomQuantityOptions,
+      stock: Number.parseInt(stock) || 0,
       displayInLatest: parseBool(displayInLatest),
       displayInBestSelling: parseBool(displayInBestSelling),
       onSale: parseBool(onSale),
@@ -227,12 +291,19 @@ router.put("/:id", upload.single("image"), async (req, res) => {
     }
 
     if (req.file) {
-      updates.imageUrl = req.file.path // Cloudinary URL
+      updates.imageUrl = req.file.path
     }
 
     const product = await Product.findByIdAndUpdate(productId, updates, { new: true })
 
     if (!product) return res.status(404).json({ success: false, error: "Product not found" })
+
+    console.log("✅ Product updated successfully:", {
+      name: product.name,
+      defaultQuantity: product.defaultQuantity,
+      unit: product.unit,
+      customQuantityOptions: product.customQuantityOptions.length,
+    })
 
     res.json({ success: true, message: "Product updated successfully", product })
   } catch (err) {
