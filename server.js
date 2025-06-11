@@ -16,7 +16,7 @@ const Admin = require("./models/Admin")
 const authRoutes = require("./routes/auth")
 const productRoutes = require("./routes/product") // Ensure this path is correct
 const heroSliderRoutes = require("./routes/HeroSlides")
-const categoryRoutes = require("./routes/Category")
+const categoryRoutes = require("./routes/category")
 
 const app = express()
 
