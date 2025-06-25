@@ -93,13 +93,13 @@ mongoose
   .then(async () => {
     console.log("✅ MongoDB connected")
 
-    const adminEmail = "admin@example.com"
+    const adminEmail = "jgstore@gmail.com"
     const existingAdmin = await Admin.findOne({ email: adminEmail })
 
     if (!existingAdmin) {
-      const hashedPassword = await bcrypt.hash("password", 10)
+      const hashedPassword = await bcrypt.hash("jgstore@987", 10)
       await Admin.create({ email: adminEmail, password: hashedPassword })
-      console.log("🛠️ Default admin created: admin@example.com / password")
+      console.log("🛠️ Default admin created: jgstore@gmail.com / jgstore@987")
     } else {
       console.log("👤 Admin already exists")
     }
