@@ -43,11 +43,9 @@ app.use(
     origin: [
   "http://localhost:5173",
   "http://localhost:5174",
-  "https://jg-enterprisefrontend-xxce.vercel.app",
-  "https://jg-enterprisefrontend-xxce-a084fyrod.vercel.app",
-  "https://jg-enterprisefrontend-qxv5gn7wq.vercel.app",
   "https://jg-enterprisefrontend.vercel.app",
   "https://host-jg-frontend-vmin.vercel.app",
+  "https://jgstorenepal.vercel.app",
 ],
     credentials: true,
     methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
