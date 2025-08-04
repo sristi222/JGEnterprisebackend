@@ -4,7 +4,6 @@ const Product = require("../models/Product")
 const router = express.Router()
 const mongoose = require("mongoose")
 
-
 // ✅ Cloudinary & Multer Setup
 const multer = require("multer")
 const { CloudinaryStorage } = require("multer-storage-cloudinary")
@@ -36,7 +35,6 @@ const isValidObjectId = (id) => mongoose.Types.ObjectId.isValid(id)
 // Helper to parse custom quantity options
 const parseCustomQuantityOptions = (customQuantityOptions) => {
   if (!customQuantityOptions) return []
-
   try {
     if (typeof customQuantityOptions === "string") {
       const parsed = JSON.parse(customQuantityOptions)
@@ -56,12 +54,10 @@ const parseCustomQuantityOptions = (customQuantityOptions) => {
 router.get("/latest", async (req, res) => {
   try {
     const products = await Product.find({ displayInLatest: true }).populate("category", "name").sort({ createdAt: -1 })
-
     const normalized = products.map((p) => ({
       ...p.toObject(),
       subcategory: normalizeSubcategory(p.subcategory),
     }))
-
     res.json({ success: true, products: normalized })
   } catch (err) {
     console.error("❌ Latest Fetch Error:", err)
@@ -75,12 +71,10 @@ router.get("/bestselling", async (req, res) => {
     const products = await Product.find({ displayInBestSelling: true })
       .populate("category", "name")
       .sort({ createdAt: -1 })
-
     const normalized = products.map((p) => ({
       ...p.toObject(),
       subcategory: normalizeSubcategory(p.subcategory),
     }))
-
     // Debug log to see what data is being sent
     if (normalized.length > 0) {
       console.log("📦 Sample product data:", {
@@ -90,7 +84,6 @@ router.get("/bestselling", async (req, res) => {
         customQuantityOptions: normalized[0].customQuantityOptions?.length || 0,
       })
     }
-
     res.json({ success: true, products: normalized })
   } catch (err) {
     console.error("❌ Best Selling Fetch Error:", err)
@@ -98,7 +91,7 @@ router.get("/bestselling", async (req, res) => {
   }
 })
 
-// ✅ Create Product (Updated for dual quantity system)
+// ✅ Create Product (Updated for dual quantity system and stock)
 router.post("/", upload.single("image"), async (req, res) => {
   try {
     console.log("📥 Creating product with data:", {
@@ -106,8 +99,8 @@ router.post("/", upload.single("image"), async (req, res) => {
       defaultQuantity: req.body.defaultQuantity,
       unit: req.body.unit,
       customQuantityOptions: req.body.customQuantityOptions ? "provided" : "not provided",
+      stock: req.body.stock, // Log stock
     })
-
     const {
       name,
       description,
@@ -118,7 +111,7 @@ router.post("/", upload.single("image"), async (req, res) => {
       unit,
       defaultQuantity, // NEW FIELD
       customQuantityOptions, // NEW FIELD
-      stock,
+      stock, // Destructure stock
       displayInLatest,
       displayInBestSelling,
       onSale,
@@ -140,7 +133,7 @@ router.post("/", upload.single("image"), async (req, res) => {
       unit: unit || "kg",
       defaultQuantity: defaultQuantity || "1", // Default to "1" if not provided
       customQuantityOptions: parsedCustomQuantityOptions, // Store custom options
-      stock: Number.parseInt(stock) || 0,
+      stock: Number.parseInt(stock) || 0, // Assign stock
       imageUrl,
       displayInLatest: parseBool(displayInLatest),
       displayInBestSelling: parseBool(displayInBestSelling),
@@ -155,8 +148,8 @@ router.post("/", upload.single("image"), async (req, res) => {
       defaultQuantity: product.defaultQuantity,
       unit: product.unit,
       customQuantityOptions: product.customQuantityOptions.length,
+      stock: product.stock, // Log saved stock
     })
-
     res.status(201).json({ success: true, message: "Product added successfully", product })
   } catch (err) {
     console.error("❌ Create Error:", err)
@@ -168,12 +161,10 @@ router.post("/", upload.single("image"), async (req, res) => {
 router.get("/", async (req, res) => {
   try {
     const products = await Product.find().populate("category", "name").sort({ createdAt: -1 })
-
     const normalized = products.map((p) => ({
       ...p.toObject(),
       subcategory: normalizeSubcategory(p.subcategory),
     }))
-
     res.json({ success: true, products: normalized })
   } catch (err) {
     res.status(500).json({ success: false, error: "Failed to fetch products" })
@@ -187,23 +178,20 @@ router.get("/:id", async (req, res) => {
     if (!isValidObjectId(productId)) {
       return res.status(400).json({ success: false, error: "Invalid product ID format" })
     }
-
     const product = await Product.findById(productId).populate("category", "name")
-
     if (!product) return res.status(404).json({ success: false, error: "Product not found" })
 
     const normalized = {
       ...product.toObject(),
       subcategory: normalizeSubcategory(product.subcategory),
     }
-
     console.log("📦 Sending single product data:", {
       name: normalized.name,
       defaultQuantity: normalized.defaultQuantity,
       unit: normalized.unit,
       customQuantityOptions: normalized.customQuantityOptions?.length || 0,
+      stock: normalized.stock, // Log stock for single product
     })
-
     res.json(normalized)
   } catch (err) {
     console.error("❌ Fetch Single Product Error:", err)
@@ -218,15 +206,12 @@ router.get("/similar/:id", async (req, res) => {
     if (!isValidObjectId(productId)) {
       return res.status(400).json({ success: false, error: "Invalid product ID format" })
     }
-
     const mainProduct = await Product.findById(productId)
-
     if (!mainProduct) {
       return res.status(404).json({ success: false, error: "Main product not found for similar search" })
     }
 
     const categoryId = mainProduct.category._id || mainProduct.category
-
     const similarProducts = await Product.find({
       category: categoryId,
       _id: { $ne: productId },
@@ -238,7 +223,6 @@ router.get("/similar/:id", async (req, res) => {
       ...p.toObject(),
       subcategory: normalizeSubcategory(p.subcategory),
     }))
-
     res.json(normalized)
   } catch (err) {
     console.error("❌ Fetch Similar Products Error:", err)
@@ -246,7 +230,7 @@ router.get("/similar/:id", async (req, res) => {
   }
 })
 
-// ✅ Update Product (Updated for dual quantity system)
+// ✅ Update Product (Updated for dual quantity system and stock)
 router.put("/:id", upload.single("image"), async (req, res) => {
   try {
     const productId = req.params.id
@@ -264,7 +248,7 @@ router.put("/:id", upload.single("image"), async (req, res) => {
       unit,
       defaultQuantity, // NEW FIELD
       customQuantityOptions, // NEW FIELD
-      stock,
+      stock, // Destructure stock
       displayInLatest,
       displayInBestSelling,
       onSale,
@@ -283,7 +267,7 @@ router.put("/:id", upload.single("image"), async (req, res) => {
       unit: unit || "kg",
       defaultQuantity: defaultQuantity || "1",
       customQuantityOptions: parsedCustomQuantityOptions,
-      stock: Number.parseInt(stock) || 0,
+      stock: Number.parseInt(stock) || 0, // Update stock
       displayInLatest: parseBool(displayInLatest),
       displayInBestSelling: parseBool(displayInBestSelling),
       onSale: parseBool(onSale),
@@ -303,8 +287,8 @@ router.put("/:id", upload.single("image"), async (req, res) => {
       defaultQuantity: product.defaultQuantity,
       unit: product.unit,
       customQuantityOptions: product.customQuantityOptions.length,
+      stock: product.stock, // Log updated stock
     })
-
     res.json({ success: true, message: "Product updated successfully", product })
   } catch (err) {
     console.error("❌ Update Error:", err)
@@ -322,6 +306,7 @@ router.delete("/:id", async (req, res) => {
 
     const deleted = await Product.findByIdAndDelete(productId)
     if (!deleted) return res.status(404).json({ success: false, error: "Product not found" })
+
     res.json({ success: true, message: "Product deleted" })
   } catch (err) {
     console.error("❌ Delete Error:", err)
