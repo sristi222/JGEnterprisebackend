@@ -19,6 +19,7 @@ const customQuantityOptionSchema = new mongoose.Schema(
       min: 0,
     },
     stock: {
+      // Add stock to custom quantity options if needed, though the request implies main product stock
       type: Number,
       default: 0,
       min: 0,
@@ -43,21 +44,18 @@ const productSchema = new mongoose.Schema({
   },
   price: { type: Number, required: true },
   unit: { type: String, required: true },
-
   // NEW: Default quantity for product cards display
   defaultQuantity: {
     type: String,
     default: "1",
     trim: true,
   },
-
   // NEW: Custom quantity options for product detail page
   customQuantityOptions: {
     type: [customQuantityOptionSchema],
     default: [],
   },
-
-  stock: { type: Number, required: true },
+  stock: { type: Number, required: true, default: 0, min: 0 }, // Add stock field here
   imageUrl: { type: String },
   displayInLatest: { type: Boolean, default: false },
   displayInBestSelling: { type: Boolean, default: false },
