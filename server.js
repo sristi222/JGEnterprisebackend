@@ -46,6 +46,7 @@ app.use(
   "https://jg-enterprisefrontend.vercel.app",
   "https://host-jg-frontend-vmin.vercel.app",
   "https://jgstorenepal.vercel.app",
+  "https://jgstorenp.vercel.app",
 ],
     credentials: true,
     methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
